@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 type usuario struct {
@@ -109,5 +112,52 @@ func BuscarUsuarios(w http.ResponseWriter, r *http.Request) {
 }
 
 func BuscarUsuario(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
 
+	ID, err := strconv.ParseUint(params["id"], 10, 32)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Erro ao converter o parametro para inteiro!"))
+		return
+	}
+
+	db, err := db.Conectar()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Erro ao conectar com o banco de dados!"))
+		return
+	}
+	defer db.Close()
+
+	row, err := db.Query("select * from usuarios u where u.id = ?", ID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Erro ao buscar o usuario!"))
+		return
+	}
+
+	var usuario usuario
+	if row.Next() {
+		if err := row.Scan(&usuario.ID, &usuario.Nome, &usuario.Email); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Erro ao escanear o usuário!"))
+			return
+		}
+	}
+
+	if usuario.ID == 0 {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Usuario não encontrado!"))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	// transforma o slice de usuarios em um json para response de um http,
+	// para response de http nao se usa o marshal
+	if err := json.NewEncoder(w).Encode(usuario); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Erro ao converter os usuarios para json!"))
+		return
+	}
 }
