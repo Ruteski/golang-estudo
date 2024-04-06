@@ -65,3 +65,49 @@ func CriarUsuario(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(fmt.Sprintf("Usuário inserido com sucesso! Id: %d", idInserido)))
 }
+
+func BuscarUsuarios(w http.ResponseWriter, r *http.Request) {
+	db, err := db.Conectar()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Erro ao conectar com o banco de dados!"))
+		return
+	}
+	defer db.Close()
+
+	rows, err := db.Query("select * from usuarios")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Erro ao buscar os usuários!"))
+		return
+	}
+	defer rows.Close()
+
+	var usuarios []usuario
+	for rows.Next() {
+		var usuario usuario
+
+		if err := rows.Scan(&usuario.ID, &usuario.Nome, &usuario.Email); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Erro ao escanear o usuário!"))
+			return
+		}
+
+		usuarios = append(usuarios, usuario)
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	// transforma o slice de usuarios em um json para response de um http,
+	// para response de http nao se usa o marshal
+	if err := json.NewEncoder(w).Encode(usuarios); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Erro ao converter os usuarios para json!"))
+		return
+	}
+
+}
+
+func BuscarUsuario(w http.ResponseWriter, r *http.Request) {
+
+}
